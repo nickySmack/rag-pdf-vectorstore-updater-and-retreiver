@@ -3,6 +3,7 @@ from langchain.chains import RetrievalQAWithSourcesChain, RetrievalQA, Conversat
 from langchain.chains.conversation.memory import ConversationSummaryBufferMemory, ConversationBufferMemory
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.output_parsers import StrOutputParser
 from langchain_core.chat_history import InMemoryChatMessageHistory
 from langchain_core.messages import HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -53,7 +54,8 @@ Use the following pieces of retrieved context to answer the question. \
 If you don't know the answer, just say that you don't know. \
 If the question is unrelated to bees or beekeeping, just say that you can't help with that.\
 
-{context}"""
+{context}
+"""
 qa_prompt = ChatPromptTemplate.from_messages(
     [
         ("system", qa_system_prompt),
@@ -61,6 +63,7 @@ qa_prompt = ChatPromptTemplate.from_messages(
         ("human", "{input}"),
     ]
 )
+
 question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
 
 rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
@@ -73,6 +76,9 @@ def get_session_history(session_id: str):
         store[session_id] = InMemoryChatMessageHistory()
     return store[session_id]
 
+# def get_session_history(session_id):
+#     return SQLChatMessageHistory(session_id, "sqlite:///memory.db")
+
 conversational_rag_chain = RunnableWithMessageHistory(
     rag_chain,
     get_session_history,
@@ -83,6 +89,13 @@ conversational_rag_chain = RunnableWithMessageHistory(
 
 # Conversation with history handling
 session_id = "abc123"  # Unique session identifier
+
+chain = conversational_rag_chain.pick("answer")
+for chunk in chain.stream({"input": "Tell me an interesting bee fact"},
+    config={
+        "configurable": {"session_id": session_id}
+    }):
+    print(chunk, end="", flush=True)
 
 answer = conversational_rag_chain.invoke(
     {"input": "Tell me an interesting bee fact"},
