@@ -1,13 +1,11 @@
+import json
 import os
 from langchain_pinecone import PineconeVectorStore
 from langchain_openai import OpenAIEmbeddings
-from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
-from io import StringIO
-from io import BytesIO
 from google.cloud import storage
-from google.oauth2 import service_account
+#from google.oauth2 import service_account ##use this if you dont want to use gcloud auth
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,48 +13,63 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 PINECONE_API_KEY = os.getenv('PINECONE_API_KEY')
 
 
-index_name = "dev1"
-embeddings = OpenAIEmbeddings()
+index_name = os.getenv('PINECONE_INDEX')
+embeddings = OpenAIEmbeddings(model='text-embedding-3-large')
 
-# path to an example text file
-credentials = service_account.Credentials.from_service_account_file('./development-426420-1c8683726ec7.json')
-storage_client = storage.Client(credentials=credentials)
-bucket = storage_client.get_bucket('seeleypdfs')
+processed_files_path = 'processed_files.json'
 
-blobs = list(bucket.list_blobs())
-for blob in blobs:
-    print(blob.name)
-    filepath = f"./tmp/{blob.name}"
-    blob.download_to_filename(filepath)
+
+
+def load_processed_files():
+    if os.path.exists(processed_files_path):
+        with open(processed_files_path, 'r') as f:
+            return set(json.load(f))
+    return set()
+
+def save_processed_files(processed_files):
+    with open(processed_files_path, 'w') as f:
+        json.dump(list(processed_files), f)
+
+def process_pdf(filepath):
     loader = PyPDFLoader(filepath)
     documents = loader.load_and_split()
-    os.remove(filepath)
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-    docs = text_splitter.split_documents(documents)
-    vectorstore_from_docs = PineconeVectorStore.from_documents(
-        docs,
-        index_name=index_name,
-        embedding=embeddings
-    )
+    text_splitter = CharacterTextSplitter(chunk_size=3000, chunk_overlap=300)
+    return text_splitter.split_documents(documents)
 
+
+def main():
+    #credentials = service_account.Credentials.from_service_account_file('./development-426420-1c8683726ec7.json') #use gcloud auth
+    storage_client = storage.Client()
+    bucket = storage_client.get_bucket(os.getenv('CLOUD_STORAGE_BUCKET'))
     
 
+    processed_files = load_processed_files()
+    new_files = []
 
-# loader = TextLoader(pdf)
-# # documents = loader.load()
-# text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-# docs = text_splitter.split_documents(documents)
+    blobs = list(bucket.list_blobs())
+    for blob in blobs:
+        if blob.name not in processed_files:
+            new_files.append(blob)
 
-# vectorstore_from_docs = PineconeVectorStore.from_documents(
-#     documents,
-#     index_name=index_name,
-#     embedding=embeddings
-# )
+    if not new_files:
+        print("No new files to process.")
+        return
 
-# texts = ["Tonight, I call on the Senate to: Pass the Freedom to Vote Act.", "ne of the most serious constitutional responsibilities a President has is nominating someone to serve on the United States Supreme Court.", "One of our nation’s top legal minds, who will continue Justice Breyer’s legacy of excellence."]
+    vectorstore = PineconeVectorStore.from_existing_index(index_name=index_name, embedding=embeddings)
 
-# vectorstore_from_texts = PineconeVectorStore.from_texts(
-#     texts,
-#     index_name=index_name,
-#     embedding=embeddings
-# )
+    for blob in new_files:
+        print(f"Processing {blob.name}")
+        filepath = f"./tmp/{blob.name}"
+        blob.download_to_filename(filepath)
+        
+        docs = process_pdf(filepath)
+        vectorstore.add_documents(docs)
+        
+        os.remove(filepath)
+        processed_files.add(blob.name)
+
+    save_processed_files(processed_files)
+    print(f"Processed {len(new_files)} new files.")
+
+if __name__ == "__main__":
+    main()
