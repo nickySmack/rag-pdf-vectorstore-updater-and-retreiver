@@ -60,6 +60,8 @@ This script updates a Pinecone vectorstore with new PDF documents from a Google 
    - Obtain a service account JSON key from the Google Cloud Console
    - Update the `storage_client` initialization in import.py
 
+7. Clear out or delete processed_files.json on the very odd chance you are also collecting beekeeping pdfs.
+
 ## Usage
 
 #### Vectorstore Updater
