@@ -27,8 +27,8 @@ llm = ChatOpenAI(
 )  
 
 knowledge = PineconeVectorStore.from_existing_index(
-    index_name="dev1",
-    embedding=OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
+    index_name=os.getenv('PINECONE_INDEX'),
+    embedding=OpenAIEmbeddings(model='text-embedding-3-large', openai_api_key=os.environ.get("OPENAI_API_KEY"))
 )
 retriever=knowledge.as_retriever()
 
