@@ -27,7 +27,7 @@ llm = ChatOpenAI(
 )  
 
 knowledge = PineconeVectorStore.from_existing_index(
-    index_name="dev",
+    index_name="dev1",
     embedding=OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
 )
 retriever=knowledge.as_retriever()
@@ -86,122 +86,37 @@ conversational_rag_chain = RunnableWithMessageHistory(
     history_messages_key="chat_history",
     output_messages_key="answer",
 )
+chain = conversational_rag_chain.pick("answer")
 
 # Conversation with history handling
 session_id = "abc123"  # Unique session identifier
 
-chain = conversational_rag_chain.pick("answer")
-for chunk in chain.stream({"input": "Tell me an interesting bee fact"},
-    config={
-        "configurable": {"session_id": session_id}
+#Start a conversation
+print("Chatbot: Hi! How can I assist you today?")
+
+while True:
+    user_input = input("You: ")
+
+    # Exit condition
+    if user_input.lower() in ["exit", "quit"]:
+        print("Chatbot: Goodbye!")
+        break
+
+    #chain = conversational_rag_chain.pick("answer")
+    # Stream response from the model
+    print("Chatbot: ", end="", flush=True)
+    # for chunk in rag_chain.stream(
+    #         {"input": [HumanMessage(content=user_input)]},
+    #         config={"configurable": {"session_id": session_id}}
+    # ):
+    #     print(chunk)
+
+    
+    for chunk in chain.stream(
+        {"input": user_input},
+        config={"configurable": {"session_id": session_id}
     }):
-    print(chunk, end="", flush=True)
+        print(chunk, end="", flush=True)
+    print()  # For newline after streaming completes
 
-answer = conversational_rag_chain.invoke(
-    {"input": "Tell me an interesting bee fact"},
-    config={
-        "configurable": {"session_id": session_id}
-    },
-)["answer"]
-
-print(answer)
-
-answer2 = conversational_rag_chain.invoke(
-    {"input": "Tell me another interesting bee fact"},
-    config={
-        "configurable": {"session_id": session_id}
-    },
-)["answer"]
-
-print(answer2)
-
-answer3 = conversational_rag_chain.invoke(
-    {"input": "Write me a python script that adds 2 numbers together."},
-    config={
-        "configurable": {"session_id": session_id}
-    },
-)["answer"]
-
-print(answer3)
-
-# # Start a conversation
-# print("Chatbot: Hi! How can I assist you today?")
-
-# while True:
-#     user_input = input("You: ")
-
-#     # Exit condition
-#     if user_input.lower() in ["exit", "quit"]:
-#         print("Chatbot: Goodbye!")
-#         break
-
-#     #chain = conversational_rag_chain.pick("answer")
-#     # Stream response from the model
-#     print("Chatbot: ", end="", flush=True)
-#     for chunk in rag_chain.stream(
-#             {"input": [HumanMessage(content=user_input)]},
-#             config={"configurable": {"session_id": session_id}}
-#     ):
-#         print(chunk)
-#     print()  # For newline after streaming completes
-
-
-
-# conversation = ConversationChain(llm=llm, memory=ConversationSummaryBufferMemory(
-#         llm=llm,
-#         max_token_limit=650
-# ))
-
-# knowledge = PineconeVectorStore.from_existing_index(
-#     index_name="dev",
-#     embedding=OpenAIEmbeddings(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-# )
-
-# qa_with_sources = RetrievalQAWithSourcesChain.from_chain_type(  
-#     llm=llm,  
-#     chain_type="stuff",  
-#     retriever=knowledge.as_retriever(),
-#     memory=ConversationSummaryBufferMemory(
-#         llm=llm,
-#         max_token_limit=650,
-#         input_key='question', 
-#         output_key='answer'
-# ) 
-# )  
-# qa = RetrievalQA.from_chain_type(
-#     llm=llm,
-#     chain_type="stuff",
-#     # memory=ConversationSummaryBufferMemory(
-#     #     llm=llm,
-#     #     max_token_limit=650
-#     # ),
-#     memory=ConversationBufferMemory(),
-#     retriever=knowledge.as_retriever()
-# )
-
-# # Define a few questions about the WonderVector5000.
-# query1 = """How can you tell if a hive is ready to swarm?"""
-
-# query2 = """Tell me a cool bee fact."""
-
-# query3 = """Tell me a different cool bee fact."""
-
-# print(qa.invoke(query1).get("result"))
-# print(qa.invoke(query2).get("result"))
-# print(qa.invoke(query3).get("result"))
-
-# # print(f"Query 1: {query1}\n")
-# # print("Chat with knowledge:")
-# # print(qa.invoke(query1).get("result"))
-# # print("\nChat with knowledge with cite:")
-# # print(qa_with_sources(query1))
-# # print("\nChat without knowledge:")
-# # print(llm.invoke(query1).content)
-# # print(f"\nQuery 2: {query2}\n")
-# # print("Chat with knowledge:")
-# # print(qa.invoke(query2).get("result"))
-# # print("\nChat with knowledge with cite:")
-# # print(qa_with_sources(query2))
-# # print("\nChat without knowledge:")
-# # print(llm.invoke(query2).content)
 
