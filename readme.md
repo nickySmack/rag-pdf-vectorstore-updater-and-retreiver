@@ -4,8 +4,8 @@ This script updates a Pinecone vectorstore with new PDF documents from a Google 
 
 ## Components
 
-Vectorstore Updater: Automatically processes and indexes new PDF documents from a Google Cloud Storage bucket into a Pinecone vectorstore.
-Retriever: Efficiently queries the Pinecone vectorstore to retrieve relevant information from indexed PDF documents.
+- Vectorstore Updater: Automatically processes and indexes new PDF documents from a Google Cloud Storage bucket into a Pinecone vectorstore.
+- Retriever: Efficiently queries the Pinecone vectorstore to retrieve relevant information from indexed PDF documents.
 
 ## Prerequisites
 
