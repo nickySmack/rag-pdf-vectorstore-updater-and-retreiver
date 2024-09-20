@@ -11,6 +11,7 @@ from langchain_core.chat_history import InMemoryChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_pinecone import PineconeVectorStore 
 from langchain_openai import OpenAIEmbeddings
+from langchain_community.callbacks import get_openai_callback
 from dotenv import load_dotenv
 import os  
 
@@ -23,7 +24,8 @@ PINECONE_API_KEY = os.getenv('PINECONE_API_KEY')
 llm = ChatOpenAI(  
     openai_api_key=os.environ.get("OPENAI_API_KEY"),  
     model_name='gpt-3.5-turbo',  
-    temperature=0.0  
+    temperature=0.0,
+    stream_usage=True
 )  
 
 knowledge = PineconeVectorStore.from_existing_index(
@@ -76,7 +78,7 @@ def get_session_history(session_id: str):
         store[session_id] = InMemoryChatMessageHistory()
     return store[session_id]
 
-# def get_session_history(session_id):
+# def get_session_history(session_id): ## for future database memory potential
 #     return SQLChatMessageHistory(session_id, "sqlite:///memory.db")
 
 conversational_rag_chain = RunnableWithMessageHistory(
@@ -94,6 +96,8 @@ session_id = "abc123"  # Unique session identifier
 #Start a conversation
 print("Chatbot: Hi! How can I assist you today?")
 
+token_count = 0
+
 while True:
     user_input = input("You: ")
 
@@ -102,21 +106,19 @@ while True:
         print("Chatbot: Goodbye!")
         break
 
-    #chain = conversational_rag_chain.pick("answer")
-    # Stream response from the model
-    print("Chatbot: ", end="", flush=True)
-    # for chunk in rag_chain.stream(
-    #         {"input": [HumanMessage(content=user_input)]},
-    #         config={"configurable": {"session_id": session_id}}
-    # ):
-    #     print(chunk)
 
-    
-    for chunk in chain.stream(
-        {"input": user_input},
-        config={"configurable": {"session_id": session_id}
-    }):
-        print(chunk, end="", flush=True)
+    # Stream response from the model
+    print("Chatbot: ", end="", flush=True)  
+    with get_openai_callback() as cb:  
+        for chunk in chain.stream(
+            {"input": user_input},
+            config={"configurable": {"session_id": session_id},
+        }):
+            print(chunk, end="", flush=True)
     print()  # For newline after streaming completes
+    # print(f"Total Tokens: {cb.total_tokens}")
+    # print(f"Prompt Tokens: {cb.prompt_tokens}")
+    # print(f"Completion Tokens: {cb.completion_tokens}")
+    # print(f"Total Cost (USD): ${cb.total_cost}")
 
 
